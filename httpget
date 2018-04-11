@@ -1,0 +1,186 @@
+#!/usr/bin/env python
+import socket
+import random
+import struct
+import sys
+import urlparse
+import time
+#My own machine's IP
+fin = 5
+start = time.time()
+
+url = urlparse.urlparse(sys.argv[1])
+
+s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+s.connect(("8.8.8.8",80))
+src_ip = s.getsockname()[0]  #own machine IP
+s.close()
+print src_ip
+dest_ip = socket.gethostbyname(url.netloc)   #host name
+httpsend = "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n" % (url.path,url.netloc)
+source_port_random = int(1024 + (random.random() * 49151))
+sequence_random = int(random.random()*2000000)
+datalst = []
+def checksum(msg):
+    s = 0
+    i = 0
+    size = len (msg)
+    # loop taking 2 characters at a time
+    while size >= 2 :
+        w = ord(msg[i]) + (ord(msg[i+1]) << 8 )
+        s = s + w
+        i = i + 2
+        size = size - 2
+    #if one then just ord() that
+    if size == 1:
+        w = ord(msg[i])
+        s = s + w
+
+    s = (s>>16) + (s & 0xffff);
+    s = s + (s >> 16);
+
+    #complement and mask to 4 byte short
+    s = ~s & 0xffff
+
+    return s
+
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW) #new socket
+    r = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) #new receving socket
+except socket.error , msg:
+    print 'Socket could not be created. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
+    sys.exit()
+
+
+    #TCP headers
+def send_a_packet (flag, data, acknum):
+    tcp_hd_vars = {
+    "src_port" : source_port_random,
+    "dest_port": 80,
+    "seq_num" : sequence_random,
+    "ack_seq_num" : acknum,
+    "dat_off": 5,
+    "urg": 0 ,
+    "ack": 0,
+    "psh": 0,
+    "rst":0,
+    "syn": 0,
+    "fin" : 0,
+    "window" : socket.htons(65535),
+    "checksum" : 0,
+    "urg_point": 0
+    }
+    if (flag == "syn"):
+        tcp_hd_vars["syn"] = 1
+    if (flag == "urg"):
+        tcp_hd_vars["urg"] = 1
+    if (flag == "ack"):
+        tcp_hd_vars["ack"] = 1
+    if (flag == "rst"):
+        tcp_hd_vars["rst"] = 1
+    if (flag == "fin"):
+        tcp_hd_vars["fin"] = 1
+    if (flag == "psh"):
+        tcp_hd_vars["psh"] = 1
+    if (flag == "finack"):
+        tcp_hd_vars["fin"] = 1
+        tcp_hd_vars["ack"] = 1
+    tcp_hd_vars ["offset_reserve"] = (tcp_hd_vars ["dat_off"] << 4) + 0
+    tcp_hd_vars["flags"] = tcp_hd_vars["fin"] + (tcp_hd_vars["syn"]<<1) + (tcp_hd_vars["rst"]<<2) + (tcp_hd_vars["psh"] << 3) + (tcp_hd_vars["ack"] << 4) + (tcp_hd_vars["urg"]<<5)
+
+    tcp_header = struct.pack('!HHLLBBHHH' , tcp_hd_vars["src_port"], tcp_hd_vars["dest_port"],tcp_hd_vars["seq_num"], tcp_hd_vars["ack_seq_num"], tcp_hd_vars["offset_reserve"],tcp_hd_vars["flags"],  tcp_hd_vars["window"], tcp_hd_vars["checksum"], tcp_hd_vars["urg_point"])
+
+    usr_data = data
+
+    #header fields
+    src_addr = socket.inet_aton (src_ip)
+    dest_addr = socket.inet_aton(dest_ip)
+    placeholder = 0
+    protocol = socket.IPPROTO_TCP
+    tcp_length = len(tcp_header) + len(usr_data)
+
+    psh = struct.pack('!4s4sBBH' , src_addr , dest_addr, placeholder , protocol , tcp_length)
+
+    psh = psh + tcp_header + usr_data
+    tcp_check = checksum(psh)
+    #print tcp_checksum
+    tcp_hd_vars["tcp_check"] = tcp_check
+    # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
+    tcp_header = struct.pack('!HHLLBBH' , tcp_hd_vars["src_port"], tcp_hd_vars["dest_port"],tcp_hd_vars["seq_num"], tcp_hd_vars["ack_seq_num"],tcp_hd_vars ["offset_reserve"], tcp_hd_vars["flags"],tcp_hd_vars["window"]) + struct.pack('H' , tcp_hd_vars["tcp_check"]) + struct.pack('!H' , tcp_hd_vars["urg_point"])
+
+
+    #IP HEADER
+
+    ip_hd_vars = {"ihl" : 5,
+    "version" :4,
+    "typ_of_serv" : 0,
+    "total_len" : 0,
+    "ident" : int(random.random()*65535),
+    "frag_off" : 0 ,
+    "ttl" : 255,
+    "protocol" : socket.IPPROTO_TCP,
+    "checksum": 0,
+    "srcaddr" : socket.inet_aton (src_ip),
+    "destaddr" : socket.inet_aton (dest_ip)
+    }
+    ip_hd_vars["ihl_version"]=  (ip_hd_vars["version"] << 4) + ip_hd_vars["ihl"]
+    ip_hd_vars["total_len"] = len(tcp_header + usr_data)
+    ip_header = struct.pack('!BBHHHBBH4s4s' , ip_hd_vars["ihl_version"],ip_hd_vars["typ_of_serv"], ip_hd_vars["total_len"], ip_hd_vars["ident"],ip_hd_vars["frag_off"], ip_hd_vars["ttl"], ip_hd_vars["protocol"],ip_hd_vars["checksum"],ip_hd_vars["srcaddr"], ip_hd_vars["destaddr"])
+
+
+    # final full packet - syn packets dont have any data
+    packet = ip_header + tcp_header + usr_data
+
+    s.sendto(packet, (dest_ip , 0 ))
+    return
+#Packet sniffer in python for Linux
+
+#disgard packets that is not from the destination IP, TCP header, check the port.
+
+send_a_packet("syn","",0)
+while (time.time()-start) < fin:
+    packet = r.recvfrom(65565)
+
+    #first element is the the packet
+    packet = packet[0]
+
+    #20 character is IP header
+    ip_header = packet[0:20]
+
+    #unpack ip header
+    ipheader = struct.unpack('!BBHHHBBH4s4s' , ip_header)
+
+    version_ihl = ipheader[0]
+    version = version_ihl >> 4
+    ihl = version_ihl & 0xF
+
+    iph_length = ihl * 4
+
+    tcp_header = packet[iph_length:iph_length+20]
+    tcpheader = struct.unpack('!HHLLBBHHH' , tcp_header)
+    sequence = tcpheader[2]
+    doff_reserved = tcpheader[4]
+    tcph_length = doff_reserved >> 4
+    tcph_flag = tcpheader[5]
+    header_size = iph_length + tcph_length * 4
+    data_size = len(packet) - header_size
+    #get data from the packet
+    data = packet[header_size:]
+
+    #flag size 18 is a SYN ACK
+
+    if (tcph_flag == 18):
+        sequence_random += 1
+        send_a_packet('ack',"", (sequence + 1))
+        send_a_packet("",httpsend,0)
+        send_a_packet("finack","",(len(data) + sequence + 1))
+        datalst.append(data)
+    else:
+        sequence_random += 1
+        send_a_packet('ack',"",(sequence + 1))
+        datalst.append(data)
+
+datalst = set(datalst)
+datastr = '-'.join(datalst)
+f = open("output","w")
+f.write(datastr)
