@@ -49,8 +49,9 @@ for i in intlist:
         SYNACK=sr1(SYN)
 
     elif (counter == 2 ):
-        ACK=IP(dst = dst)/TCP(flags='A', seq=SYNACK.ack, ack=SYNACK.seq + 1)
-        send(ACK)
+        ACK=IP(dst = dst)/TCP(dport = 80,flags='A', seq=SYNACK.ack, ack=SYNACK.seq + 1)
+        ACK.payload.window = i
+        sr(ACK)
     else:
         packet = IP(dst = dst)/TCP(dport = 80)
         packet.payload.window = i
