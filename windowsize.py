@@ -58,7 +58,9 @@ for i in intlist:
         #acknum = SYNACK.ack
         send(ACK)
     else:
-        packet = IP(dst = dst)/TCP(dport = 80,flags = "P",seq =acknum,ack= sequence + 1 )
+        packet = IP(dst = dst)/TCP(dport = 80,flags = "P",seq =acknum+1,ack= sequence + 1 )
+        sequence = sequence + 1
+        acknum = acknum +1
         packet.payload.window = i
         ans = sr1(packet)
 
