@@ -23,23 +23,37 @@ for i in byteslist:
 
 
 
+#Source and Destination
+src = "192.168.24.29"  #this
+dst = socket.gethostbyname(str(sys.argv[1]))
+sport = random.randint(1024,65535)
+dport = int(80)
+
+
 packetlist = []
-ip = socket.gethostbyname(str(sys.argv[1]))
 packetans = []
 counter = 0
-# make packets
+# make packets and three way handshake
+SYN = None
+SYNACK = None
+ACK = None
+
+
 for i in intlist:
     counter = counter + 1
-    packet = IP(dst = ip)/TCP()
-    packet.payload.window = i
-    if (counter == 2):
-        packet.flag = "A"
-    packetlist.append(packet)
+    #make the syn packet if it is first packet
+    if (counter == 1):
+        # SYN
+        SYN=IP(dst = dst)/TCP(flags='S',seq=1000,dport = 80)
+        SYN.payload.window = i
+        SYNACK=sr1(SYN)
+
+    elif (counter == 2 ):
+        ACK=IP(dst = dst)/TCP(flags='A', seq=SYNACK.ack, ack=SYNACK.seq + 1)
+        sr1(ACK)
+    else:
+        packet = IP(dst = dst)/TCP(dport = 80)
+        packet.payload.window = i
+        ans,unans = sr1(i,verbose = 0)
 
 counter = 0
-
-# send packets
-for i in packetlist:
-    print (i.payload.window)
-    ans,unans = sr(i,verbose = 0)
-    packetans.append(ans)
