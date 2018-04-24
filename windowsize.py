@@ -37,8 +37,8 @@ counter = 0
 SYN = None
 SYNACK = None
 ACK = None
-
-
+sequence = 0;
+acknum = 0;
 for i in intlist:
     counter = counter + 1
     #make the syn packet if it is first packet
@@ -51,9 +51,11 @@ for i in intlist:
     elif (counter == 2 ):
         ACK=IP(dst = dst)/TCP(dport = 80,flags='A', seq=SYNACK.ack, ack=SYNACK.seq + 1)
         ACK.payload.window = i
+        sequence = SYNACK.seq + 1
+        acknum = SYNACK.ack
         send(ACK)
     else:
-        packet = IP(dst = dst)/TCP(dport = 80,flags = "P")
+        packet = IP(dst = dst)/TCP(dport = 80,flags = "A",seq =acknum,ack= sequence + 1 )
         packet.payload.window = i
         ans = sr1(packet)
 
