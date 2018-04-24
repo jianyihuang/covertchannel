@@ -52,13 +52,13 @@ for i in intlist:
         acknum = SYNACK.seq
 
     elif (counter == 2 ):
-        ACK=IP(dst = dst)/TCP(dport = 80,flags='A', seq=acknum, ack=sequence + 1)
+        ACK=IP(dst = dst)/TCP(dport = 80,flags='A', seq=sequence, ack=acknum + 1)
         ACK.payload.window = i
         #sequence = SYNACK.seq + 1
         #acknum = SYNACK.ack
         send(ACK)
     else:
-        packet = IP(dst = dst)/TCP(dport = 80,flags = "A",seq =acknum,ack= sequence + 1 )
+        packet = IP(dst = dst)/TCP(dport = 80,flags = "P",seq =acknum,ack= sequence + 1 )
         packet.payload.window = i
         ans = sr1(packet)
 
