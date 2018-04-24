@@ -55,6 +55,6 @@ for i in intlist:
     else:
         packet = IP(dst = dst)/TCP(dport = 80,flags = "P")
         packet.payload.window = i
-        ans = send(packet)
+        ans = sr1(packet)
 
 counter = 0
