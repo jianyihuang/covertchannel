@@ -51,10 +51,10 @@ for i in intlist:
     elif (counter == 2 ):
         ACK=IP(dst = dst)/TCP(dport = 80,flags='A', seq=SYNACK.ack, ack=SYNACK.seq + 1)
         ACK.payload.window = i
-        sr(ACK)
+        send(ACK)
     else:
-        packet = IP(dst = dst)/TCP(dport = 80)
+        packet = IP(dst = dst)/TCP(dport = 80,flags = "P")
         packet.payload.window = i
-        ans,unans = sr1(i,verbose = 0)
+        ans = send(packet)
 
 counter = 0
