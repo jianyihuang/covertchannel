@@ -36,32 +36,10 @@ counter = 0
 # make packets and three way handshake
 SYN = None
 SYNACK = None
-ACK = None
-sequence = 1000;
-acknum = 0;
-
+sequence = int(2**31 * (random.random()))
 for i in intlist:
-    counter = counter + 1
     #make the syn packet if it is first packet
-    if (counter == 1):
         # SYN
-        SYN=IP(dst = dst)/TCP(flags='S',seq=sequence,dport = 80)
-        SYN.payload.window = i
-        SYNACK=sr1(SYN)
-        sequence = SYNACK.ack
-        acknum = SYNACK.seq
-
-    elif (counter == 2 ):
-        ACK=IP(dst = dst)/TCP(dport = 80,flags='S', seq=sequence, ack=acknum + 1)
-        ACK.payload.window = i
-        #sequence = SYNACK.seq + 1
-        #acknum = SYNACK.ack
-        send(ACK)
-    else:
-        packet = IP(dst = dst)/TCP(dport = 80,flags = "S",seq =acknum+1,ack= sequence + 1 )
-        sequence = sequence + 1
-        acknum = acknum +1
-        packet.payload.window = i
-        ans = sr1(packet)
-
-counter = 0
+    SYN=IP(dst = dst)/TCP(flags='SF',seq=int(2**31 * (random.random())),dport = 80)
+    SYN.payload.window = i
+    SYNACK = sr1(SYN)
