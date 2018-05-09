@@ -40,6 +40,6 @@ sequence = int(2**31 * (random.random()))
 for i in intlist:
     #make the syn packet if it is first packet
         # SYN
-    SYN=IP(dst = dst)/TCP(flags='SF',seq=int(2**31 * (random.random())),dport = 80)
+    SYN=IP(dst = dst)/TCP(flags='S',seq=1000,dport = 80)
     SYN.payload.window = i
     SYNACK = sr1(SYN)
